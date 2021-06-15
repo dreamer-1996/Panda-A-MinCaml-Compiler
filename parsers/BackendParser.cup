@@ -1,0 +1,112 @@
+package org.panda.backend;
+
+import org.panda.backend.ast.*;
+import java_cup.runtime.*;
+import java.util.*;
+import org.panda.ast.*;
+import org.panda.ast.Float;
+
+parser code {:
+    BackendLexer l;
+    public BackendParser(BackendLexer l){
+	   this.l = l;
+    }
+
+    class Pair<A,B> {
+        A left;
+        B right;
+
+        Pair(A left, B right) {
+            this.left = left;
+            this.right = right;
+        }
+    }
+
+    :}
+
+init with {:  :};
+scan with {: return l.next_token(); :};
+
+terminal int INT;
+terminal float FLOAT;
+terminal Var IDENT;
+terminal Label LABEL;
+
+
+terminal PLUS, EQUAL, ADD, SUB,
+ FEQUAL, FLE, NEG, FNEG, MEM, FMUL, FDIV, FSUB, FADD,
+ ASSIGN, CALL, NEW, NOP, APPCLO, UNDERSC,
+ LE, GE, IF, THEN, ELSE,
+ LET, IN, DOT, LPAREN, RPAREN;
+
+non terminal Exp ident_or_imm;
+
+non terminal Exp exp;
+non terminal Exp asmt;
+non terminal List<Var> formal_args;
+non terminal Program fundefs;
+
+precedence left  EQUAL, LE, GE, FEQUAL, FLE, FMUL, FDIV, FSUB, FADD;
+precedence left  PLUS, ASSIGN;
+precedence left  DOT;
+
+precedence nonassoc INT, FLOAT, IDENT, LPAREN;
+
+start with fundefs;
+
+ident_or_imm ::=
+  INT:i       {: RESULT = new Int(i); :}
+| IDENT:id    {: RESULT = id; :}
+;
+
+exp ::=
+  NOP                       {: RESULT = new Nop(); :}
+| LPAREN exp:e RPAREN       {: RESULT = e; :}
+| INT:i                     {: RESULT = new Int(i); :}
+| IDENT:id                  {: RESULT = id; :}
+| LABEL:id                  {: RESULT = id; :}
+| NEG IDENT:id              {: RESULT = new Neg(id); :}
+| FNEG IDENT:id             {: RESULT = new FNeg(id); :}
+| FADD IDENT:id1 IDENT:id2  {: RESULT = new FAdd(id1,id2); :}
+| FSUB IDENT:id1 IDENT:id2  {: RESULT = new FSub(id1,id2); :}
+| FMUL IDENT:id1 IDENT:id2  {: RESULT = new FMul(id1,id2); :}
+| FDIV IDENT:id1 IDENT:id2  {: RESULT = new FDiv(id1,id2); :}
+| NEW ident_or_imm:e        {: RESULT = new New(e); :}
+| ADD IDENT:id ident_or_imm:e                                   {: RESULT = new Add(id,e); :}
+| SUB IDENT:id ident_or_imm:e                                   {: RESULT = new Sub(id,e); :}
+| MEM LPAREN IDENT:id PLUS ident_or_imm:e RPAREN                {: RESULT = new Mem(id,e); :}
+| MEM LPAREN IDENT:id1 PLUS ident_or_imm:e RPAREN ASSIGN IDENT:id2    {: RESULT = new Mem_Assign(id1,e,id2); :}
+| IF IDENT:id EQUAL ident_or_imm:e THEN asmt:a1 ELSE asmt:a2    {: RESULT = new If_eq(id,e,a1,a2); :}
+| IF IDENT:id LE ident_or_imm:e THEN asmt:a1 ELSE asmt:a2       {: RESULT = new If_le(id,e,a1,a2); :}
+| IF IDENT:id GE ident_or_imm:e THEN asmt:a1 ELSE asmt:a2       {: RESULT = new If_ge(id,e,a1,a2); :}
+| IF IDENT:id1 FEQUAL IDENT:id2 THEN asmt:a1 ELSE asmt:a2       {: RESULT = new If_feq(id1,id2,a1,a2); :}
+| IF IDENT:id1 FLE IDENT:id2 THEN asmt:a1 ELSE asmt:a2          {: RESULT = new If_fle(id1,id2,a1,a2); :}
+| CALL LABEL:lab formal_args:args                               {: RESULT = new Call(lab,args); :}
+| APPCLO IDENT:id formal_args:args                              {: RESULT = new Call_clo(id,args); :}
+;
+
+asmt ::=
+  LPAREN asmt:a RPAREN                  {: RESULT = a; :}
+| LET IDENT:id EQUAL exp:e1 IN asmt:e2  {: RESULT = new Let(id,e1,e2); :}
+| exp:e                                 {: RESULT = e; :}
+;
+
+formal_args ::=
+  IDENT:id formal_args:args     {: args.add(id); RESULT = args; :}
+| IDENT:id
+                                {: List l = new LinkedList<Var>();
+                                    l.add(0, id);
+                                    RESULT = l;
+                                :}
+;
+
+fundefs ::=
+  LET UNDERSC EQUAL asmt:body
+                                            {: Program p = new Program();
+                                                p.setMain(Label.get("_start"),body);
+                                                RESULT = p;
+                                            :}
+| LET LABEL:lab EQUAL FLOAT:f fundefs:p                     {: p.add_float(lab,f); RESULT = p; :}
+| LET LABEL:lab EQUAL asmt:body fundefs:p                   {: p.add_fun(lab,new LinkedList<Var>(),body); RESULT = p; :}
+| LET LABEL:lab formal_args:args EQUAL asmt:body fundefs:p  {: p.add_fun(lab,args,body); RESULT = p; :}
+;

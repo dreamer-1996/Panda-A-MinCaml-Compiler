@@ -1,0 +1,81 @@
+ASML use ML-style comments. Integer (INT) and float litterals (FLOAT) are defined as in OCaml. Identifiers (IDENT) are strings of characters and numbers, starting lowercase character. A label (LABEL) is an identifier starting with an _. %self is a special identifier.
+
+The other tokens are:
+
+LPAREN  '('
+RPAREN  ')'
+PLUS    '+'
+EQUAL   '='
+FEQUAL  "=."
+LE      "<="
+FLE     "<=."
+GE      ">="
+IF      "if"
+THEN    "then"
+ELSE    "else"
+LET     "let"
+IN      "in"
+DOT     "."
+NEG     "neg"
+FNEG    "fneg"
+MEM     "mem"
+FMUL    "fmul"
+FDIV    "fdiv"
+FSUB    "fsub"
+FADD    "fadd"
+ASSIGN  "<-"
+ADD     "add"
+SUB     "sub"
+CALL    "call"
+NEW     "new"
+    NOP     "nop"
+    APPCLO  "apply_closure"
+    UNDERSC '_'
+The syntax is given by the following rules:
+
+ident_or_imm:
+| INT
+| IDENT
+
+exp:
+| NOP
+| LPAREN exp RPAREN
+| INT
+| IDENT
+| LABEL
+| NEG IDENT
+| FNEG IDENT
+| FADD IDENT IDENT
+| FSUB IDENT IDENT
+| FMUL IDENT IDENT
+| FDIV IDENT IDENT
+| NEW ident_or_imm
+| ADD IDENT ident_or_imm
+| SUB IDENT ident_or_imm
+| MEM LPAREN IDENT PLUS ident_or_imm RPAREN
+| MEM LPAREN IDENT PLUS ident_or_imm RPAREN ASSIGN IDENT
+| IF IDENT EQUAL ident_or_imm THEN asmt ELSE asmt
+| IF IDENT LE ident_or_imm THEN asmt ELSE asmt
+| IF IDENT GE ident_or_imm THEN asmt ELSE asmt
+| IF IDENT FEQUAL IDENT THEN asmt ELSE asmt
+| IF IDENT FLE IDENT THEN asmt ELSE asmt
+| CALL LABEL formal_args
+| CALLCLO IDENT formal_args
+
+asmt:
+| LPAREN asmt RPAREN
+| LET IDENT EQUAL exp IN asmt
+| exp
+
+formal_args:
+| IDENT formal_args
+| IDENT
+| NIL
+
+fundefs:
+| LET UNDERSC EQUAL asmt
+| LET LABEL EQUAL FLOAT fundefs
+| LET LABEL formal_args EQUAL asmt fundefs
+
+toplevel:
+|  fundefs
